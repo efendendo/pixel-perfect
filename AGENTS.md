@@ -9,5 +9,6 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Signed-in pages live under src/routes/_authenticated/ (client-only gate redirecting to /signin); keeps SSR free of session logic.
+- Plain Vite + React SPA (no SSR), routed with React Router in src/routes/index.tsx; pages live in src/pages/. Deployed to Vercel as static files from dist/ with a vercel.json SPA fallback.
+- Signed-in pages use the `requireUser` loader in src/routes/authenticated.ts (redirects to /signin when there is no session).
 - Auth uses only the built-in auth users; no custom tables until later milestones add them via migration files.
