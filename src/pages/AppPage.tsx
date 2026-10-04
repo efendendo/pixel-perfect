@@ -1,28 +1,24 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useLoaderData, useNavigate } from "react-router";
 import { LogOut, PlaneTakeoff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SiteHeader, SiteFooter } from "@/components/SiteHeader";
+import { usePageMeta } from "@/lib/use-page-meta";
+import type { AuthenticatedData } from "@/routes/authenticated";
 
-export const Route = createFileRoute("/_authenticated/app")({
-  head: () => ({
-    meta: [
-      { title: "Dashboard｜Flight Price Notifier" },
-      { name: "description", content: "你的航線追蹤儀表板。" },
-      { property: "og:title", content: "Dashboard｜Flight Price Notifier" },
-      { property: "og:description", content: "你的航線追蹤儀表板。" },
-    ],
-  }),
-  component: AppPage,
-});
-
-function AppPage() {
-  const { user } = Route.useRouteContext();
+export default function AppPage() {
+  usePageMeta({
+    title: "Dashboard｜Flight Price Notifier",
+    description: "你的航線追蹤儀表板。",
+    ogTitle: "Dashboard｜Flight Price Notifier",
+    ogDescription: "你的航線追蹤儀表板。",
+  });
+  const { user } = useLoaderData() as AuthenticatedData;
   const navigate = useNavigate();
 
   async function signOut() {
     await supabase.auth.signOut();
-    navigate({ to: "/" });
+    navigate("/");
   }
 
   return (

@@ -1,99 +1,24 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
-import { Radar, BellRing, CalendarX } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { SiteHeader, SiteFooter } from "@/components/SiteHeader";
+import type { RouteObject } from "react-router";
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Flight Price Notifier｜機票降價通知" },
-      { name: "description", content: "設定航線與目標價，機票降價就通知你。Set a route and a target price — we email you when the fare drops." },
-      { property: "og:title", content: "Flight Price Notifier｜機票降價通知" },
-      { property: "og:description", content: "設定航線與目標價，機票降價就通知你。" },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+import { ErrorComponent, NotFoundComponent, RootComponent } from "./root";
+import { requireUser } from "./authenticated";
+import Index from "@/pages/Index";
+import SignIn from "@/pages/SignIn";
+import SignUp from "@/pages/SignUp";
+import AppPage from "@/pages/AppPage";
+
+export const routes: RouteObject[] = [
+  {
+    path: "/",
+    Component: RootComponent,
+    ErrorBoundary: ErrorComponent,
+    HydrateFallback: () => null,
+    children: [
+      { index: true, Component: Index },
+      { path: "signin", Component: SignIn },
+      { path: "signup", Component: SignUp },
+      { path: "app", loader: requireUser, Component: AppPage },
+      { path: "*", Component: NotFoundComponent },
     ],
-  }),
-  component: Index,
-});
-
-const features = [
-  { icon: Radar, title: "盯緊熱門航線", en: "Always-on route watching", body: "持續監控台北出發的熱門航線（東京、首爾），自動抓最低票價。" },
-  { icon: BellRing, title: "達標自動通知", en: "Target-price email alerts", body: "低於你設定的目標價，就寄 email 提醒你，附上立即訂購連結。" },
-  { icon: CalendarX, title: "隨時取消", en: "Cancel anytime", body: "月訂閱制，不想用隨時停，沒有綁約。" },
+  },
 ];
-
-function useReveal() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const els = ref.current?.querySelectorAll(".reveal") ?? [];
-    const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add("is-visible")),
-      { threshold: 0.15 },
-    );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, []);
-  return ref;
-}
-
-function Index() {
-  const ref = useReveal();
-  return (
-    <div ref={ref} className="flex min-h-screen flex-col">
-      <SiteHeader
-        right={
-          <Button asChild>
-            <Link to="/signin">Sign in / 登入</Link>
-          </Button>
-        }
-      />
-      <main className="flex-1">
-        <section className="relative overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 bg-hero-glow" />
-          <div className="relative mx-auto max-w-4xl px-4 pb-24 pt-24 text-center sm:px-6 sm:pt-32">
-            <p className="animate-fade-up mb-6 inline-block rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground">
-              機票降價通知 · 台北出發
-            </p>
-            <h1 className="animate-fade-up text-gradient text-5xl font-extrabold tracking-tight sm:text-7xl">
-              Flight Price Notifier
-            </h1>
-            <p className="animate-fade-up mt-6 text-xl font-medium sm:text-2xl">
-              設定航線與目標價，機票降價就通知你
-            </p>
-            <p className="animate-fade-up mt-3 text-muted-foreground">
-              Set a route and a target price — we email you when the fare drops.
-            </p>
-            <div className="animate-fade-up mt-10 flex justify-center gap-3">
-              <Button asChild size="lg" className="shadow-glow">
-                <Link to="/signup">免費開始 / Get started</Link>
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl px-4 pb-28 sm:px-6">
-          <div className="grid gap-6 md:grid-cols-3">
-            {features.map((f, i) => (
-              <div
-                key={f.title}
-                className="reveal rounded-2xl border border-border bg-card p-7 transition-colors hover:border-primary/50"
-                style={{ transitionDelay: `${i * 100}ms` }}
-              >
-                <div className="mb-5 grid h-11 w-11 place-items-center rounded-xl bg-accent text-primary">
-                  <f.icon className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-semibold">
-                  {f.title} <span className="block text-sm font-normal text-muted-foreground">({f.en})</span>
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </main>
-      <SiteFooter />
-    </div>
-  );
-}
