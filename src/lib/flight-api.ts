@@ -39,10 +39,10 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function listSubscriptions(email: string): Promise<Subscription[]> {
-  const body = await call<{ items?: Subscription[] } | Subscription[]>(
+  const body = await call<{ subscriptions?: Subscription[] }>(
     `/subscriptions?email=${encodeURIComponent(email)}`,
   );
-  const items = Array.isArray(body) ? body : (body.items ?? []);
+  const items = body.subscriptions ?? [];
   return items.map((s) => ({ ...s, target_price: Number(s.target_price) }));
 }
 
