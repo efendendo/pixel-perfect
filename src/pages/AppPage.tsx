@@ -1,10 +1,20 @@
+import { useEffect, useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
-import { LogOut, PlaneTakeoff } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SiteHeader, SiteFooter } from "@/components/SiteHeader";
 import { usePageMeta } from "@/lib/use-page-meta";
 import { RetroSky } from "@/components/RetroSky";
+import { PlanCard } from "@/components/PlanCard";
+import {
+  PLANS,
+  isFlightApiConfigured,
+  listSubscriptions,
+  subscribe,
+  type PlanName,
+  type Subscription,
+} from "@/lib/flight-api";
 import type { AuthenticatedData } from "@/routes/authenticated";
 
 export default function AppPage() {
@@ -16,6 +26,22 @@ export default function AppPage() {
   });
   const { user } = useLoaderData() as AuthenticatedData;
   const navigate = useNavigate();
+  const email = user.email ?? "";
+  const [subs, setSubs] = useState<Subscription[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const apiReady = isFlightApiConfigured();
+
+  useEffect(() => {
+    if (!apiReady || !email) return;
+    listSubscriptions(email)
+      .then(setSubs)
+      .catch(() => setLoadError("暫時讀不到你的訂閱，請稍後重新整理。"));
+  }, [apiReady, email]);
+
+  async function handleSubscribe(plan: PlanName, targetPrice: number) {
+    await subscribe(email, plan, targetPrice);
+    setSubs(await listSubscriptions(email));
+  }
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -44,16 +70,23 @@ export default function AppPage() {
           <h1 className="animate-fade-up break-words text-3xl font-bold tracking-tight drop-shadow-[3px_3px_0_var(--ink)] sm:text-4xl">
             Hi {user.email}
           </h1>
-          <div className="panel-mecha animate-fade-up mt-8 rounded-md bg-card p-10 text-center backdrop-blur-sm">
-            <div className="border-ink mx-auto mb-5 grid h-14 w-14 place-items-center rounded-full border-2 bg-accent text-primary shadow-glow">
-              <PlaneTakeoff className="h-6 w-6" />
-            </div>
-            <p className="text-lg font-medium">
-              你的航線追蹤儀表板即將上線 — 下一個里程碑會加上訂閱航線的功能。
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Your dashboard is coming soon. Route-subscription will be added in the next milestone.
-            </p>
+          <p className="animate-fade-up mt-3 text-muted-foreground">
+            選一條航線、設定目標價，票價低於目標就寄 email 通知你。
+          </p>
+          {!apiReady && (
+            <p className="mt-6 text-sm text-destructive">訂閱服務尚未設定，請稍後再試。</p>
+          )}
+          {loadError && <p className="mt-6 text-sm text-destructive">{loadError}</p>}
+          <div className="mt-8 grid gap-6 sm:grid-cols-2">
+            {PLANS.map((plan) => (
+              <PlanCard
+                key={`${plan.name}-${subs.find((s) => s.route === plan.route)?.target_price ?? ""}`}
+                plan={plan}
+                subscription={subs.find((s) => s.route === plan.route)}
+                disabled={!apiReady || !email}
+                onSubmit={(price) => handleSubscribe(plan.name, price)}
+              />
+            ))}
           </div>
         </div>
       </main>
