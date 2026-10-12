@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLoaderData, useNavigate } from "react-router";
+import { useLoaderData, useNavigate, useSearchParams } from "react-router";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { RetroSky } from "@/components/RetroSky";
 import { PlanCard } from "@/components/PlanCard";
 import {
   PLANS,
+  cancelSubscription,
   isFlightApiConfigured,
   listSubscriptions,
   subscribe,
@@ -30,6 +31,9 @@ export default function AppPage() {
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const apiReady = isFlightApiConfigured();
+  // ECPay's browser return lands here via the flight-ecpay-result redirect.
+  const [searchParams] = useSearchParams();
+  const purchase = searchParams.get("purchase");
 
   useEffect(() => {
     if (!apiReady || !email) return;
@@ -39,7 +43,14 @@ export default function AppPage() {
   }, [apiReady, email]);
 
   async function handleSubscribe(plan: PlanName, targetPrice: number) {
-    await subscribe(email, plan, targetPrice);
+    // "checkout" means the page is now ECPay's cashier; nothing left to do here.
+    if ((await subscribe(email, plan, targetPrice)) === "updated") {
+      setSubs(await listSubscriptions(email));
+    }
+  }
+
+  async function handleCancel(route: string) {
+    await cancelSubscription(email, route);
     setSubs(await listSubscriptions(email));
   }
 
@@ -76,6 +87,16 @@ export default function AppPage() {
           {!apiReady && (
             <p className="mt-6 text-sm text-destructive">訂閱服務尚未設定，請稍後再試。</p>
           )}
+          {purchase === "failed" && (
+            <p className="mt-6 text-sm text-destructive">
+              付款沒有成功，可以再按一次「完成付款」重試。
+            </p>
+          )}
+          {purchase === "success" && (
+            <p className="mt-6 text-sm font-medium">
+              付款完成！訂閱狀態更新可能要幾秒鐘，沒看到「已訂閱」就重新整理一下。
+            </p>
+          )}
           {loadError && <p className="mt-6 text-sm text-destructive">{loadError}</p>}
           <div className="mt-8 grid gap-6 sm:grid-cols-2">
             {PLANS.map((plan) => (
@@ -85,6 +106,7 @@ export default function AppPage() {
                 subscription={subs.find((s) => s.route === plan.route)}
                 disabled={!apiReady || !email}
                 onSubmit={(price) => handleSubscribe(plan.name, price)}
+                onCancel={() => handleCancel(plan.route)}
               />
             ))}
           </div>
