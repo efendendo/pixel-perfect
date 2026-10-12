@@ -33,7 +33,7 @@ export default function AppPage() {
   const apiReady = isFlightApiConfigured();
   // ECPay's browser return lands here via the flight-ecpay-result redirect.
   const [searchParams] = useSearchParams();
-  const purchased = searchParams.get("purchase") === "success";
+  const purchase = searchParams.get("purchase");
 
   useEffect(() => {
     if (!apiReady || !email) return;
@@ -87,7 +87,12 @@ export default function AppPage() {
           {!apiReady && (
             <p className="mt-6 text-sm text-destructive">訂閱服務尚未設定，請稍後再試。</p>
           )}
-          {purchased && (
+          {purchase === "failed" && (
+            <p className="mt-6 text-sm text-destructive">
+              付款沒有成功，可以再按一次「完成付款」重試。
+            </p>
+          )}
+          {purchase === "success" && (
             <p className="mt-6 text-sm font-medium">
               付款完成！訂閱狀態更新可能要幾秒鐘，沒看到「已訂閱」就重新整理一下。
             </p>
