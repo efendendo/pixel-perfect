@@ -1,5 +1,5 @@
 // Client for the flight-api HTTP API (API Gateway → Lambda → DynamoDB).
-// The browser holds no AWS credentials; it only calls these two routes.
+// The browser holds no AWS credentials; it only calls these routes.
 
 export type PlanName = "tokyo" | "seoul";
 
@@ -16,13 +16,22 @@ export const PLANS: Plan[] = [
   { name: "seoul", label: "台北 ✈ 首爾", route: "TPE-SEL", hintTwd: 5989 },
 ];
 
+export type SubscriptionStatus = "pending_payment" | "active" | "cancelled" | "expired";
+
 export type Subscription = {
   email: string;
   route: string;
   plan_name: PlanName;
   target_price: number;
   currency: "TWD";
+  // Set by the ECPay callbacks (M2). Rows from M1 have no status and count as unpaid.
+  subscription_status?: SubscriptionStatus;
+  current_period_end_date?: string;
 };
+
+export function statusOf(sub: Subscription): SubscriptionStatus {
+  return sub.subscription_status ?? "pending_payment";
+}
 
 const API_URL = (import.meta.env.VITE_FLIGHT_API_URL ?? "").replace(/\/+$/, "");
 
@@ -46,10 +55,37 @@ export async function listSubscriptions(email: string): Promise<Subscription[]> 
   return items.map((s) => ({ ...s, target_price: Number(s.target_price) }));
 }
 
-export async function subscribe(email: string, plan: PlanName, targetPrice: number) {
-  return call<unknown>("/subscribe", {
+// /subscribe answers with either an auto-submitting ECPay checkout form (text/html)
+// or JSON when it only updated the target price of a paid subscription.
+export async function subscribe(
+  email: string,
+  plan: PlanName,
+  targetPrice: number,
+): Promise<"checkout" | "updated"> {
+  if (!API_URL) throw new Error("VITE_FLIGHT_API_URL is not set");
+  const res = await fetch(`${API_URL}/subscribe`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, plan_name: plan, target_price: targetPrice }),
+  });
+  if ((res.headers.get("content-type") ?? "").includes("text/html")) {
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    // Hand the page to ECPay: the form's inline script POSTs to the cashier.
+    const html = await res.text();
+    document.open();
+    document.write(html);
+    document.close();
+    return "checkout";
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error ?? `Request failed (${res.status})`);
+  return "updated";
+}
+
+export async function cancelSubscription(email: string, route: string) {
+  return call<unknown>("/cancel", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, route }),
   });
 }
